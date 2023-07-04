@@ -7,31 +7,27 @@ import (
 )
 
 type KeyInput struct {
-	buffer []byte
+	buffer *Buffer
 
 	errCh chan error
 }
 
 func NewKeyInput() KeyInput {
 	return KeyInput{
-		buffer: make([]byte, 0, 1024),
+		buffer: NewBuffer(),
 		errCh:  make(chan error),
 	}
 }
 
-func (i *KeyInput) ErrChan() <-chan error {
+func (i KeyInput) ErrChan() <-chan error {
 	return i.errCh
 }
 
-func (i *KeyInput) Buffer() []byte {
-	return i.buffer
-}
-
-func (i *KeyInput) Close() error {
+func (i KeyInput) Close() error {
 	return keyboard.Close()
 }
 
-func (i *KeyInput) GetKeys(print bool) {
+func (i KeyInput) GetKeys() {
 	keyEvents, err := keyboard.GetKeys(10)
 	if err != nil {
 		i.errCh <- err
@@ -43,25 +39,20 @@ func (i *KeyInput) GetKeys(print bool) {
 			i.errCh <- e.Err
 			break
 		}
+
 		if e.Key == keyboard.KeyEsc {
-			if print {
-				fmt.Print("\n")
-			}
 			i.errCh <- nil
 			break
-		}
-
-		var b byte
-		if e.Rune != 0x00 {
-			// still not sure what will be lost with cast
-			b = byte(e.Rune)
+		} else if e.Key == keyboard.KeyBackspace || e.Key == keyboard.KeyBackspace2 {
+			i.buffer.Back()
 		} else if e.Key == keyboard.KeySpace {
-			b = 0x20
+			i.buffer.Add(Space)
+		} else if e.Rune != NonAlphaNum {
+			// still not sure what will be lost with cast
+			i.buffer.Add(byte(e.Rune))
 		}
-		i.buffer = append(i.buffer, b)
 
-		if print {
-			fmt.Printf("%c", b)
-		}
+		// then send buffer to server
+		fmt.Printf("%v\n", i.buffer)
 	}
 }
