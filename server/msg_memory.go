@@ -3,7 +3,6 @@ package main
 import "sync"
 
 type MsgMemory struct {
-	joinedAt  int64
 	name      string
 	timeStamp int64
 	msg       string
@@ -13,9 +12,8 @@ type MsgMemory struct {
 
 func NewMsgMemory(timeStamp int64) *MsgMemory {
 	return &MsgMemory{
-		joinedAt:  timeStamp,
 		timeStamp: timeStamp,
-		msg:       "",
+		msg:       "                                        ", //40spaces
 	}
 }
 
