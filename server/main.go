@@ -12,9 +12,25 @@ import (
 	"google.golang.org/grpc"
 )
 
+type MsgMemMap map[string]*MsgMemory
+
 type ChatRoomServer struct {
 	pb.UnimplementedChatRoomServiceServer
 	msgMemMap MsgMemMap
+	sortedKey []string
+}
+
+func (s *ChatRoomServer) MakeSortedChatMsg() []*pb.ChatMsg {
+	len := len(s.sortedKey)
+	msgs := make([]*pb.ChatMsg, 0, len)
+	for i := 0; i < len; i++ {
+		key := s.sortedKey[i]
+		msgs = append(msgs, &pb.ChatMsg{
+			Name: key,
+			Msg:  s.msgMemMap[key].msg,
+		})
+	}
+	return msgs
 }
 
 func (s *ChatRoomServer) Join(
@@ -35,8 +51,8 @@ func (s *ChatRoomServer) Join(
 				ErrMsg: &pb.ErrorMsg{Msg: "player name is already used"},
 			}
 		} else {
-			s.msgMemMap[playerName] = NewMsgMemory(time.Now().UnixMilli(), playerName)
-
+			s.msgMemMap[playerName] = NewMsgMemory(time.Now().UnixMilli())
+			s.sortedKey = append(s.sortedKey, playerName)
 			res = &pb.JoinResponse{
 				Ok:     true,
 				ErrMsg: nil,
@@ -77,7 +93,7 @@ func (s *ChatRoomServer) Chat(stream pb.ChatRoomService_ChatServer) error {
 				}
 			} else {
 				mem.Set(clientMsg.GetUnixMil(), chatMsg.GetMsg())
-				msgs := s.msgMemMap.ToChatMsgs()
+				msgs := s.MakeSortedChatMsg()
 
 				serverMsg = &pb.ChatServerMsg{
 					UnixMil:  now,
@@ -97,7 +113,10 @@ func (s *ChatRoomServer) Chat(stream pb.ChatRoomService_ChatServer) error {
 
 func main() {
 	grpcServer := grpc.NewServer()
-	crServer := ChatRoomServer{msgMemMap: make(MsgMemMap)}
+	crServer := ChatRoomServer{
+		msgMemMap: make(MsgMemMap),
+		sortedKey: make([]string, 0),
+	}
 	pb.RegisterChatRoomServiceServer(grpcServer, &crServer)
 
 	l, err := net.Listen(common.Transport, common.Localhost)
