@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"log"
 	"net"
@@ -16,6 +17,35 @@ type ChatRoomServer struct {
 	msgMemMap MsgMemMap
 }
 
+func (s *ChatRoomServer) Join(
+	ctx context.Context, req *pb.JoinRequest,
+) (*pb.JoinResponse, error) {
+	var res *pb.JoinResponse
+	playerName := req.GetName()
+	if playerName == "" {
+		res = &pb.JoinResponse{
+			Ok:     false,
+			ErrMsg: &pb.ErrorMsg{Msg: "player name is empty"},
+		}
+	} else {
+		_, exists := s.msgMemMap[playerName]
+		if exists {
+			res = &pb.JoinResponse{
+				Ok:     false,
+				ErrMsg: &pb.ErrorMsg{Msg: "player name is already used"},
+			}
+		} else {
+			s.msgMemMap[playerName] = NewMsgMemory(time.Now().UnixMilli(), playerName)
+
+			res = &pb.JoinResponse{
+				Ok:     true,
+				ErrMsg: nil,
+			}
+		}
+	}
+	return res, nil
+}
+
 func (s *ChatRoomServer) Chat(stream pb.ChatRoomService_ChatServer) error {
 	for {
 		clientMsg, err := stream.Recv()
@@ -26,9 +56,9 @@ func (s *ChatRoomServer) Chat(stream pb.ChatRoomService_ChatServer) error {
 		}
 
 		var serverMsg *pb.ChatServerMsg
+		now := time.Now().UnixMilli()
 		chatMsg := clientMsg.GetChatMsg()
 		playerName := chatMsg.GetName()
-		now := time.Now().UnixMilli()
 		if playerName == "" {
 			serverMsg = &pb.ChatServerMsg{
 				UnixMil:  now,
@@ -38,21 +68,23 @@ func (s *ChatRoomServer) Chat(stream pb.ChatRoomService_ChatServer) error {
 			}
 		} else {
 			mem, exists := s.msgMemMap[playerName]
-			timeStamp := clientMsg.GetUnixMil()
-			msg := chatMsg.GetMsg()
 			if !exists {
-				s.msgMemMap[playerName] = NewMsgMemory(timeStamp, msg)
+				serverMsg = &pb.ChatServerMsg{
+					UnixMil:  now,
+					ChatMsgs: nil,
+					Ok:       false,
+					ErrMsg:   &pb.ErrorMsg{Msg: "no such player"},
+				}
 			} else {
-				mem.Set(timeStamp, msg)
-			}
+				mem.Set(clientMsg.GetUnixMil(), chatMsg.GetMsg())
+				msgs := s.msgMemMap.ToChatMsgs()
 
-			msgs := s.msgMemMap.ToChatMsgs()
-
-			serverMsg = &pb.ChatServerMsg{
-				UnixMil:  now,
-				ChatMsgs: msgs,
-				Ok:       true,
-				ErrMsg:   nil,
+				serverMsg = &pb.ChatServerMsg{
+					UnixMil:  now,
+					ChatMsgs: msgs,
+					Ok:       true,
+					ErrMsg:   nil,
+				}
 			}
 		}
 

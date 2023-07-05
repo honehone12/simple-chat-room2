@@ -4,20 +4,22 @@ import "sync"
 
 type MsgMemory struct {
 	timeStamp int64
+	name      string
 	msg       string
 
 	rwLock sync.RWMutex
 }
 
-func NewMsgMemory(timeStamp int64, msg string) *MsgMemory {
+func NewMsgMemory(timeStamp int64, name string) *MsgMemory {
 	return &MsgMemory{
 		timeStamp: timeStamp,
-		msg:       msg,
+		name:      name,
+		msg:       "",
 	}
 }
 
-func (m *MsgMemory) Get() (int64, string) {
-	return m.timeStamp, m.msg
+func (m *MsgMemory) Get() (int64, string, string) {
+	return m.timeStamp, m.name, m.msg
 }
 
 func (m *MsgMemory) Set(timeStamp int64, msg string) {

@@ -6,6 +6,7 @@ import (
 	"log"
 	"simple-chat-room2/common"
 	pb "simple-chat-room2/pb"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -29,9 +30,19 @@ func main() {
 		log.Fatal(err)
 	}
 	defer conn.Close()
-
 	crClient := pb.NewChatRoomServiceClient(conn)
-	ctx, cancel := context.WithCancel(context.Background())
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	res, err := crClient.Join(ctx, &pb.JoinRequest{Name: *playerName})
+	if err != nil {
+		log.Fatal(err)
+	}
+	if !res.GetOk() {
+		log.Fatal(res.GetErrMsg())
+	}
+
+	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 	stream, err := crClient.Chat(ctx)
 	if err != nil {

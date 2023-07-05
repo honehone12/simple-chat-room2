@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
+	ChatRoomService_Join_FullMethodName = "/ChatRoomService/Join"
 	ChatRoomService_Chat_FullMethodName = "/ChatRoomService/Chat"
 )
 
@@ -26,6 +27,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ChatRoomServiceClient interface {
+	Join(ctx context.Context, in *JoinRequest, opts ...grpc.CallOption) (*JoinResponse, error)
 	Chat(ctx context.Context, opts ...grpc.CallOption) (ChatRoomService_ChatClient, error)
 }
 
@@ -35,6 +37,15 @@ type chatRoomServiceClient struct {
 
 func NewChatRoomServiceClient(cc grpc.ClientConnInterface) ChatRoomServiceClient {
 	return &chatRoomServiceClient{cc}
+}
+
+func (c *chatRoomServiceClient) Join(ctx context.Context, in *JoinRequest, opts ...grpc.CallOption) (*JoinResponse, error) {
+	out := new(JoinResponse)
+	err := c.cc.Invoke(ctx, ChatRoomService_Join_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *chatRoomServiceClient) Chat(ctx context.Context, opts ...grpc.CallOption) (ChatRoomService_ChatClient, error) {
@@ -72,6 +83,7 @@ func (x *chatRoomServiceChatClient) Recv() (*ChatServerMsg, error) {
 // All implementations must embed UnimplementedChatRoomServiceServer
 // for forward compatibility
 type ChatRoomServiceServer interface {
+	Join(context.Context, *JoinRequest) (*JoinResponse, error)
 	Chat(ChatRoomService_ChatServer) error
 	mustEmbedUnimplementedChatRoomServiceServer()
 }
@@ -80,6 +92,9 @@ type ChatRoomServiceServer interface {
 type UnimplementedChatRoomServiceServer struct {
 }
 
+func (UnimplementedChatRoomServiceServer) Join(context.Context, *JoinRequest) (*JoinResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Join not implemented")
+}
 func (UnimplementedChatRoomServiceServer) Chat(ChatRoomService_ChatServer) error {
 	return status.Errorf(codes.Unimplemented, "method Chat not implemented")
 }
@@ -94,6 +109,24 @@ type UnsafeChatRoomServiceServer interface {
 
 func RegisterChatRoomServiceServer(s grpc.ServiceRegistrar, srv ChatRoomServiceServer) {
 	s.RegisterService(&ChatRoomService_ServiceDesc, srv)
+}
+
+func _ChatRoomService_Join_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JoinRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatRoomServiceServer).Join(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatRoomService_Join_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatRoomServiceServer).Join(ctx, req.(*JoinRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _ChatRoomService_Chat_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -128,7 +161,12 @@ func (x *chatRoomServiceChatServer) Recv() (*ChatClientMsg, error) {
 var ChatRoomService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "ChatRoomService",
 	HandlerType: (*ChatRoomServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Join",
+			Handler:    _ChatRoomService_Join_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Chat",

@@ -3,7 +3,17 @@ syntax = "proto3";
 option go_package = "./";
 
 service ChatRoomService {
+    rpc Join(JoinRequest) returns (JoinResponse);
     rpc Chat(stream ChatClientMsg) returns (stream ChatServerMsg);
+}
+
+message JoinRequest {
+    string name = 1; 
+}
+
+message JoinResponse {
+    bool ok = 2;
+    ErrorMsg err_msg = 3;
 }
 
 message ChatClientMsg {

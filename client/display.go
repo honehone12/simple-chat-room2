@@ -38,7 +38,7 @@ func (d Display) Display(stream pb.ChatRoomService_ChatClient) {
 			d.errCh <- err
 			break
 		}
-		if !bundle.Ok {
+		if !bundle.GetOk() {
 			d.errCh <- errors.New(bundle.GetErrMsg().GetMsg())
 			break
 		}
