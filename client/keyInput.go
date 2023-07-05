@@ -1,9 +1,16 @@
 package main
 
 import (
-	"fmt"
+	pb "simple-chat-room2/pb"
+	"time"
 
 	"github.com/eiannone/keyboard"
+)
+
+const (
+	keyBufferSize = 10
+	nonAlphaNum   = 0x0
+	space         = 0x20
 )
 
 type KeyInput struct {
@@ -27,8 +34,8 @@ func (i KeyInput) Close() error {
 	return keyboard.Close()
 }
 
-func (i KeyInput) GetKeys() {
-	keyEvents, err := keyboard.GetKeys(10)
+func (i KeyInput) Input(name string, stream pb.ChatRoomService_ChatClient) {
+	keyEvents, err := keyboard.GetKeys(keyBufferSize)
 	if err != nil {
 		i.errCh <- err
 		return
@@ -46,13 +53,28 @@ func (i KeyInput) GetKeys() {
 		} else if e.Key == keyboard.KeyBackspace || e.Key == keyboard.KeyBackspace2 {
 			i.buffer.Back()
 		} else if e.Key == keyboard.KeySpace {
-			i.buffer.Add(Space)
-		} else if e.Rune != NonAlphaNum {
+			i.buffer.Add(space)
+		} else if e.Rune != nonAlphaNum {
 			// still not sure what will be lost with cast
 			i.buffer.Add(byte(e.Rune))
 		}
 
-		// then send buffer to server
-		fmt.Printf("%v\n", i.buffer)
+		s, err := i.buffer.String()
+		if err != nil {
+			i.errCh <- err
+			break
+		}
+
+		err = stream.Send(&pb.ChatClientMsg{
+			UnixMil: time.Now().UnixMilli(),
+			ChatMsg: &pb.ChatMsg{
+				Name: name,
+				Msg:  s,
+			},
+		})
+		if err != nil {
+			i.errCh <- err
+			break
+		}
 	}
 }

@@ -1,29 +1,60 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"log"
+	"simple-chat-room2/common"
+	pb "simple-chat-room2/pb"
 	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-func mainLoop() {
-	ticker := time.NewTicker(time.Millisecond * 100)
-	defer ticker.Stop()
-
-	for range ticker.C {
-
-	}
-}
-
 func main() {
-	i := NewKeyInput()
-	e := i.ErrChan()
-	defer i.Close()
-	go i.GetKeys()
+	playerName := flag.String("name", "", "player's name")
+	flag.Parse()
 
-	go mainLoop()
+	if *playerName == "" {
+		log.Fatalln("name is needed")
+	}
 
-	err := <-e
+	input := NewKeyInput()
+	defer input.Close()
+
+	display := NewDisplay()
+
+	conn, err := grpc.Dial(common.Localhost,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer conn.Close()
+
+	crClient := pb.NewChatRoomServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	stream, err := crClient.Chat(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	go input.Input(*playerName, stream)
+	go display.Display(stream)
+
+	log.Fatal(catch(
+		input.ErrChan(),
+		display.ErrChan(),
+	))
+}
+
+func catch(inputErr <-chan error, displayErr <-chan error) error {
+	var err error
+	select {
+	case err = <-inputErr:
+	case err = <-displayErr:
+	}
+	return err
 }

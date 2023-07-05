@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+option go_package = "./";
+
+service ChatRoomService {
+    rpc Chat(stream ChatClientMsg) returns (stream ChatServerMsg);
+}
+
+message ChatClientMsg {
+    int64 unix_mil = 1;
+    ChatMsg chat_msg = 2;
+}
+
+message ChatServerMsg {
+    int64 unix_mil = 1;
+    repeated ChatMsg chat_msgs = 2;
+    
+    bool ok = 3;
+    ErrorMsg err_msg = 4;
+}
+
+message ChatMsg {
+    string name = 1;
+    string msg = 2;
+}
+
+message ErrorMsg {
+    string msg = 1;
+}
