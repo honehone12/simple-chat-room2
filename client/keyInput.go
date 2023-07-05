@@ -30,10 +30,6 @@ func (i KeyInput) ErrChan() <-chan error {
 	return i.errCh
 }
 
-func (i KeyInput) Close() error {
-	return keyboard.Close()
-}
-
 func (i KeyInput) Input(name string, stream pb.ChatRoomService_ChatClient) {
 	keyEvents, err := keyboard.GetKeys(keyBufferSize)
 	if err != nil {
@@ -43,12 +39,12 @@ func (i KeyInput) Input(name string, stream pb.ChatRoomService_ChatClient) {
 
 	for e := range keyEvents {
 		if e.Err != nil {
-			i.errCh <- e.Err
+			err = e.Err
 			break
 		}
 
 		if e.Key == keyboard.KeyEsc {
-			i.errCh <- nil
+			err = nil
 			break
 		} else if e.Key == keyboard.KeyBackspace || e.Key == keyboard.KeyBackspace2 {
 			i.buffer.Back()
@@ -59,9 +55,9 @@ func (i KeyInput) Input(name string, stream pb.ChatRoomService_ChatClient) {
 			i.buffer.Add(byte(e.Rune))
 		}
 
-		s, err := i.buffer.String()
+		var s string
+		s, err = i.buffer.String()
 		if err != nil {
-			i.errCh <- err
 			break
 		}
 
@@ -73,8 +69,12 @@ func (i KeyInput) Input(name string, stream pb.ChatRoomService_ChatClient) {
 			},
 		})
 		if err != nil {
-			i.errCh <- err
 			break
 		}
 	}
+
+	// can not handle this error (this case needs force quit anyway)
+	_ = keyboard.Close()
+	// wait for close then send err to main, to prevent quit app before close
+	i.errCh <- err
 }

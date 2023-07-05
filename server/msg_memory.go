@@ -21,8 +21,10 @@ func (m *MsgMemory) Get() (int64, string) {
 }
 
 func (m *MsgMemory) Set(timeStamp int64, msg string) {
-	m.rwLock.Lock()
-	m.timeStamp = timeStamp
-	m.msg = msg
-	m.rwLock.Unlock()
+	if timeStamp > m.timeStamp {
+		m.rwLock.Lock()
+		m.timeStamp = timeStamp
+		m.msg = msg
+		m.rwLock.Unlock()
+	}
 }

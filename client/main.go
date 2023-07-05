@@ -6,7 +6,6 @@ import (
 	"log"
 	"simple-chat-room2/common"
 	pb "simple-chat-room2/pb"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -21,8 +20,6 @@ func main() {
 	}
 
 	input := NewKeyInput()
-	defer input.Close()
-
 	display := NewDisplay()
 
 	conn, err := grpc.Dial(common.Localhost,
@@ -34,7 +31,7 @@ func main() {
 	defer conn.Close()
 
 	crClient := pb.NewChatRoomServiceClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	stream, err := crClient.Chat(ctx)
 	if err != nil {

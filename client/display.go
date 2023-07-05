@@ -21,7 +21,7 @@ func (d Display) ErrChan() <-chan error {
 }
 
 func displayMessage(player string, msg string) {
-	fmt.Printf("[%s]", player)
+	fmt.Printf("[%s] ", player)
 	fmt.Printf("%s\n", msg)
 }
 
