@@ -6,5 +6,5 @@ const (
 )
 
 const (
-	InputBufferSize = 40
+	InputBufferSize = 64
 )

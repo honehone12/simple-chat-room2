@@ -30,7 +30,7 @@ func (i KeyInput) ErrChan() <-chan error {
 	return i.errCh
 }
 
-func (i KeyInput) Input(name string, stream pb.ChatRoomService_ChatClient) {
+func (i KeyInput) Input() {
 	keyEvents, err := keyboard.GetKeys(keyBufferSize)
 	if err != nil {
 		i.errCh <- err
@@ -54,7 +54,19 @@ func (i KeyInput) Input(name string, stream pb.ChatRoomService_ChatClient) {
 			// still not sure what will be lost with cast
 			i.buffer.Add(byte(e.Rune))
 		}
+	}
 
+	// can not handle this error (this case needs force quit anyway)
+	_ = keyboard.Close()
+	// wait for close then send err to main, to prevent quit app before close
+	i.errCh <- err
+}
+
+func (i KeyInput) Sync(name string, stream pb.ChatRoomService_ChatClient) {
+	ticker := time.NewTicker(time.Millisecond * 100)
+
+	var err error
+	for now := range ticker.C {
 		var s string
 		s, err = i.buffer.String()
 		if err != nil {
@@ -62,7 +74,7 @@ func (i KeyInput) Input(name string, stream pb.ChatRoomService_ChatClient) {
 		}
 
 		err = stream.Send(&pb.ChatClientMsg{
-			UnixMil: time.Now().UnixMilli(),
+			UnixMil: now.UnixMilli(),
 			ChatMsg: &pb.ChatMsg{
 				Name: name,
 				Msg:  s,
@@ -73,8 +85,6 @@ func (i KeyInput) Input(name string, stream pb.ChatRoomService_ChatClient) {
 		}
 	}
 
-	// can not handle this error (this case needs force quit anyway)
-	_ = keyboard.Close()
-	// wait for close then send err to main, to prevent quit app before close
+	ticker.Stop()
 	i.errCh <- err
 }

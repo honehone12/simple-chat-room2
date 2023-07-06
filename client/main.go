@@ -49,7 +49,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	go input.Input(*playerName, stream)
+	go input.Input()
+	go input.Sync(*playerName, stream)
 	go display.Display(stream)
 
 	log.Fatal(catch(
