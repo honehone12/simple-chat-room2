@@ -7,17 +7,32 @@ import (
 	"net"
 	"simple-chat-room2/common"
 	pb "simple-chat-room2/pb"
+	"strings"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
 )
 
-type MsgMemMap map[string]*MsgMemory
-
 type ChatRoomServer struct {
 	pb.UnimplementedChatRoomServiceServer
-	msgMemMap MsgMemMap
+
+	rwLock    sync.RWMutex
+	msgMemMap map[string]*MsgMemory
 	sortedKey []string
+}
+
+func (s *ChatRoomServer) DeleteMemory(key string) {
+	s.rwLock.Lock()
+	delete(s.msgMemMap, key)
+	len := len(s.sortedKey)
+	for i := 0; i < len; i++ {
+		if strings.Compare(s.sortedKey[i], key) == 0 {
+			s.sortedKey = append(s.sortedKey[:i], s.sortedKey[i+1:]...)
+			break
+		}
+	}
+	s.rwLock.Unlock()
 }
 
 func (s *ChatRoomServer) MakeSortedChatMsg() []*pb.ChatMsg {
@@ -63,58 +78,62 @@ func (s *ChatRoomServer) Join(
 }
 
 func (s *ChatRoomServer) Chat(stream pb.ChatRoomService_ChatServer) error {
+	var playerName string
+	var e error
+
 	for {
-		clientMsg, err := stream.Recv()
-		if err == io.EOF {
-			return nil
-		} else if err != nil {
-			return err
+		msgs := s.MakeSortedChatMsg()
+		now := time.Now().UnixMilli()
+		serverMsg := &pb.ChatServerMsg{
+			UnixMil:  now,
+			ChatMsgs: msgs,
+			Ok:       true,
+			ErrMsg:   nil,
 		}
 
-		var serverMsg *pb.ChatServerMsg
-		now := time.Now().UnixMilli()
+		err := stream.Send(serverMsg)
+		if err != nil {
+			e = err
+			break
+		}
+
+		clientMsg, err := stream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			e = err
+			break
+		}
+
 		chatMsg := clientMsg.GetChatMsg()
-		playerName := chatMsg.GetName()
+		playerName = chatMsg.GetName()
 		if playerName == "" {
-			serverMsg = &pb.ChatServerMsg{
-				UnixMil:  now,
-				ChatMsgs: nil,
-				Ok:       false,
-				ErrMsg:   &pb.ErrorMsg{Msg: "player name is empty"},
-			}
+			break
 		} else {
 			mem, exists := s.msgMemMap[playerName]
 			if !exists {
-				serverMsg = &pb.ChatServerMsg{
-					UnixMil:  now,
-					ChatMsgs: nil,
-					Ok:       false,
-					ErrMsg:   &pb.ErrorMsg{Msg: "no such player"},
-				}
+				break
 			} else {
-				mem.Set(clientMsg.GetUnixMil(), chatMsg.GetMsg())
-				msgs := s.MakeSortedChatMsg()
-
-				serverMsg = &pb.ChatServerMsg{
-					UnixMil:  now,
-					ChatMsgs: msgs,
-					Ok:       true,
-					ErrMsg:   nil,
+				msg := chatMsg.GetMsg()
+				if len(msg) != common.InputBufferSize {
+					break
+				} else {
+					mem.Set(clientMsg.GetUnixMil(), msg)
 				}
 			}
 		}
-
-		err = stream.Send(serverMsg)
-		if err != nil {
-			return err
-		}
 	}
+
+	if playerName != "" {
+		s.DeleteMemory(playerName)
+	}
+	return e
 }
 
 func main() {
 	grpcServer := grpc.NewServer()
 	crServer := ChatRoomServer{
-		msgMemMap: make(MsgMemMap),
+		msgMemMap: make(map[string]*MsgMemory),
 		sortedKey: make([]string, 0),
 	}
 	pb.RegisterChatRoomServiceServer(grpcServer, &crServer)

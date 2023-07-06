@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"simple-chat-room2/common"
 	pb "simple-chat-room2/pb"
 )
 
@@ -45,10 +46,12 @@ func (d Display) Display(stream pb.ChatRoomService_ChatClient) {
 
 		msgs := bundle.GetChatMsgs()
 		len := len(msgs)
+		fmt.Println(common.Space64)
 		for i := 0; i < len; i++ {
 			m := msgs[i]
 			displayMessage(m.GetName(), m.GetMsg())
 		}
-		reverseLines(len)
+		fmt.Println(common.Space64)
+		reverseLines(len + 2)
 	}
 }

@@ -1,9 +1,11 @@
 package main
 
-import "sync"
+import (
+	"simple-chat-room2/common"
+	"sync"
+)
 
 type MsgMemory struct {
-	name      string
 	timeStamp int64
 	msg       string
 
@@ -13,12 +15,8 @@ type MsgMemory struct {
 func NewMsgMemory(timeStamp int64) *MsgMemory {
 	return &MsgMemory{
 		timeStamp: timeStamp,
-		msg:       "                                        ", //40spaces
+		msg:       common.Space64,
 	}
-}
-
-func (m *MsgMemory) Get() (int64, string, string) {
-	return m.timeStamp, m.name, m.msg
 }
 
 func (m *MsgMemory) Set(timeStamp int64, msg string) {
