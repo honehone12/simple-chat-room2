@@ -9,4 +9,8 @@ const (
 
 const (
 	InputBufferSize = 64
+
+	// 100 -> laggy
+	// 33  -> enough
+	InputSyncMil = 16
 )
