@@ -17,18 +17,18 @@ import (
 type ChatRoomServer struct {
 	pb.UnimplementedChatRoomServiceServer
 
-	rwLock    sync.RWMutex
-	msgMemMap map[string]*MsgMemory
-	sortedKey []string
+	rwLock     sync.RWMutex
+	msgMemMap  map[string]*MsgMemory
+	sortedKeys []string
 }
 
 func (s *ChatRoomServer) DeleteMemory(key string) {
 	s.rwLock.Lock()
 	delete(s.msgMemMap, key)
-	len := len(s.sortedKey)
+	len := len(s.sortedKeys)
 	for i := 0; i < len; i++ {
-		if strings.Compare(s.sortedKey[i], key) == 0 {
-			s.sortedKey = append(s.sortedKey[:i], s.sortedKey[i+1:]...)
+		if strings.Compare(s.sortedKeys[i], key) == 0 {
+			s.sortedKeys = append(s.sortedKeys[:i], s.sortedKeys[i+1:]...)
 			break
 		}
 	}
@@ -36,10 +36,10 @@ func (s *ChatRoomServer) DeleteMemory(key string) {
 }
 
 func (s *ChatRoomServer) MakeSortedChatMsg() []*pb.ChatMsg {
-	len := len(s.sortedKey)
+	len := len(s.sortedKeys)
 	msgs := make([]*pb.ChatMsg, 0, len)
 	for i := 0; i < len; i++ {
-		key := s.sortedKey[i]
+		key := s.sortedKeys[i]
 		msgs = append(msgs, &pb.ChatMsg{
 			Name: key,
 			Msg:  s.msgMemMap[key].msg,
@@ -67,7 +67,7 @@ func (s *ChatRoomServer) Join(
 			}
 		} else {
 			s.msgMemMap[playerName] = NewMsgMemory(time.Now().UnixMilli())
-			s.sortedKey = append(s.sortedKey, playerName)
+			s.sortedKeys = append(s.sortedKeys, playerName)
 			res = &pb.JoinResponse{
 				Ok:     true,
 				ErrMsg: nil,
@@ -108,14 +108,18 @@ func (s *ChatRoomServer) Chat(stream pb.ChatRoomService_ChatServer) error {
 		chatMsg := clientMsg.GetChatMsg()
 		playerName = chatMsg.GetName()
 		if playerName == "" {
+			log.Println("received empty player name")
 			break
 		} else {
 			mem, exists := s.msgMemMap[playerName]
 			if !exists {
+				log.Printf("received unknown player name: %s", playerName)
+				playerName = ""
 				break
 			} else {
 				msg := chatMsg.GetMsg()
-				if len(msg) != common.InputBufferSize {
+				if len(msg) > common.InputBufferSize {
+					log.Println("received oversize message")
 					break
 				} else {
 					mem.Set(clientMsg.GetUnixMil(), msg)
@@ -133,8 +137,8 @@ func (s *ChatRoomServer) Chat(stream pb.ChatRoomService_ChatServer) error {
 func main() {
 	grpcServer := grpc.NewServer()
 	crServer := ChatRoomServer{
-		msgMemMap: make(map[string]*MsgMemory),
-		sortedKey: make([]string, 0),
+		msgMemMap:  make(map[string]*MsgMemory),
+		sortedKeys: make([]string, 0),
 	}
 	pb.RegisterChatRoomServiceServer(grpcServer, &crServer)
 
