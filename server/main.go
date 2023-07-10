@@ -66,12 +66,14 @@ func (s *ChatRoomServer) Join(
 				ErrMsg: &pb.ErrorMsg{Msg: "player name is already used"},
 			}
 		} else {
+			s.rwLock.Lock()
 			s.msgMemMap[playerName] = NewMsgMemory(time.Now().UnixMilli())
 			s.sortedKeys = append(s.sortedKeys, playerName)
 			res = &pb.JoinResponse{
 				Ok:     true,
 				ErrMsg: nil,
 			}
+			s.rwLock.Unlock()
 		}
 	}
 	return res, nil
