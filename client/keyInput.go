@@ -1,6 +1,7 @@
 package main
 
 import (
+	"simple-chat-room2/common"
 	pb "simple-chat-room2/pb"
 	"time"
 
@@ -63,7 +64,7 @@ func (i KeyInput) Input() {
 }
 
 func (i KeyInput) Sync(name string, stream pb.ChatRoomService_ChatClient) {
-	ticker := time.NewTicker(time.Millisecond * 16)
+	ticker := time.NewTicker(time.Millisecond * common.InputSyncMil)
 
 	var err error
 	for now := range ticker.C {
